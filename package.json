@@ -1,0 +1,14 @@
+{
+  "name": "pixix-douyin",
+  "type": "module",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node ."
+  },
+  "author": "tangxifox",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "express": "^5.2.1"
+  }
+}
