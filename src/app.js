@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 // ================= 基础 =================
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+app.set('json spaces', 2);
 // ================= 读取配置 =================
 function loadConfig() {
   const configPath = path.resolve(__dirname, '../data/config.conf');
@@ -99,11 +99,10 @@ function parseVideo(file) {
 async function initCache() {
   const count = db.prepare(`SELECT COUNT(*) as c FROM files`).get().c;
   if (count > 0) {
-    console.log('✅ 使用缓存');
     return;
   }
 
-  console.log('⚡ 初始化缓存...');
+  console.log('初始化缓存...');
 
   const insert = db.prepare(`
     INSERT OR IGNORE INTO files
@@ -150,7 +149,7 @@ async function initCache() {
 
   insertMany(rows);
 
-  console.log(`✅ 缓存 ${rows.length} 条`);
+  console.log(`缓存 ${rows.length} 条`);
 }
 
 // ================= 监听 =================
@@ -236,6 +235,126 @@ app.get('/pixiv/artworks/random', (req, res) => {
   });
 });
 
+// pixiv info
+app.get('/pixiv/artworks/info', (req, res) => {
+  const { list } = req.query;
+
+  if (!list) {
+    return apiResponse(res, { error: true, message: '缺少 list' }, 400);
+  }
+
+  const row = db.prepare(`
+    SELECT * FROM files
+    WHERE type='pixiv' AND filename LIKE ?
+    LIMIT 1
+  `).get(`%${list}%`);
+
+  if (!row) return apiResponse(res, { error: true }, 404);
+
+  const parsed = parsePixiv(row.filename);
+  if (!parsed) return apiResponse(res, { error: true }, 400);
+
+  const prefix = `${parsed.base}_${parsed.pid}`;
+
+  let pages = db.prepare(`
+    SELECT filename FROM files
+    WHERE type='pixiv' AND dir=? AND filename LIKE ?
+  `).all(row.dir, `${prefix}%`);
+
+  pages.sort((a, b) => {
+    const pa = a.filename.match(/_p(\d+)/)?.[1] || 0;
+    const pb = b.filename.match(/_p(\d+)/)?.[1] || 0;
+    return Number(pa) - Number(pb);
+  });
+
+  const host = getHost(req);
+
+  apiResponse(res, {
+    error: false,
+    message: 'success',
+    body: {
+      illustId: parsed.pid,
+      title: parsed.base,
+      pageCount: pages.length,
+      urls: pages.map(p =>
+        `${host}/pixiv/artworks/file/${encodeURIComponent(p.filename)}`
+      )
+    }
+  });
+});
+
+// plus random
+app.get('/plus/artworks/random', (req, res) => {
+  const row = db.prepare(`
+    SELECT * FROM files WHERE type='plus'
+    ORDER BY RANDOM() LIMIT 1
+  `).get();
+
+  if (!row) return apiResponse(res, { error: true }, 404);
+
+  const host = getHost(req);
+
+  apiResponse(res, {
+    error: false,
+    message: 'success',
+    body: {
+      authorName: row.authorName,
+      authorId: row.authorId,
+      title: row.title,
+      urls: [
+        `${host}/plus/artworks/file/${encodeURIComponent(row.filename)}`
+      ]
+    }
+  });
+});
+
+// plus info
+app.get('/plus/artworks/info', (req, res) => {
+  const { list } = req.query;
+
+  if (!list) {
+    return apiResponse(res, { error: true, message: '缺少 list' }, 400);
+  }
+
+  if (list === 'all') {
+    const rows = db.prepare(`
+      SELECT DISTINCT authorName, authorId FROM files WHERE type='plus'
+    `).all();
+
+    return apiResponse(res, {
+      error: false,
+      message: 'success',
+      body: rows
+    });
+  }
+
+  const rows = db.prepare(`
+    SELECT * FROM files
+    WHERE type='plus'
+    AND (authorName LIKE ? OR authorId LIKE ?)
+  `).all(`%${list}%`, `%${list}%`);
+
+  if (!rows.length) {
+    return apiResponse(res, { error: true }, 404);
+  }
+
+  const host = getHost(req);
+
+  apiResponse(res, {
+    error: false,
+    message: 'success',
+    count: rows.length,
+    body: rows.map(r => ({
+      authorName: r.authorName,
+      authorId: r.authorId,
+      title: r.title,
+      urls: [
+        `${host}/plus/artworks/file/${encodeURIComponent(r.filename)}`
+      ]
+    }))
+  });
+});
+
 // ================= 文件接口（带防盗链） =================
 
 // pixiv
@@ -297,5 +416,5 @@ app.listen(PORT, async () => {
   watchFolder(PIXIV_ROOT, 'pixiv');
   watchFolder(PLUS_ROOT, 'plus');
 
-  console.log(`🚀 http://${HOST}:${PORT}`);
+  console.log(`http://${HOST}:${PORT}`);
 });

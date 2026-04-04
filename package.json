@@ -1,14 +1,24 @@
 {
-  "name": "pixix-douyin",
+  "name": "pixhub",
+  "version": "1.0.0",
+  "description": "pixiv与douyn的资源后端",
   "type": "module",
-  "main": "src/app.js",
   "scripts": {
-    "start": "node ."
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js"
   },
-  "author": "tangxifox",
-  "license": "Apache-2.0",
   "dependencies": {
     "better-sqlite3": "^12.8.0",
     "express": "^5.2.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "tangxifox",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tangxifox/pixhub.git"
   }
 }
+
