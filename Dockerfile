@@ -22,4 +22,4 @@ RUN mkdir -p /app/resources
 EXPOSE 3000
 
 # 启动时确保 resources 目录存在
-CMD ["sh", "-c", "mkdir -p /app/resources && node src/app.js"]
+CMD ["sh", "-c", "node src/app.js"]
