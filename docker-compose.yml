@@ -1,0 +1,9 @@
+services:
+  pixhub:
+    build: .
+    container_name: pixhub
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./resources:/app/resources
