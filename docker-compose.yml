@@ -6,4 +6,5 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data
-      - ./resources:/app/resources
+      - /vol1/1000/resources:/app/resources
+    restart: unless-stopped
