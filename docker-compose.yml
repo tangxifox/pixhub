@@ -3,8 +3,8 @@ services:
     build: .
     container_name: pixhub
     ports:
-      - "3000:3000"
+      - "${PORT}:3000"
     volumes:
-      - ./data:/app/data
-      - /vol1/1000/resources:/app/resources
+      - "${DATA_DIR}:/app/data"
+      - "${RESOURCES_DIR}:/app/resources"
     restart: unless-stopped
