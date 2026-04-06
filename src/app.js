@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 
 // ================= 基础 =================
 const app = express();
+app.set('trust proxy', true);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.set('json spaces', 2);
 // ================= 读取配置 =================
@@ -67,7 +68,19 @@ db.pragma('cache_size = 1000000');
 // ================= 工具 =================
 const apiResponse = (res, data, code = 200) => res.status(code).json(data);
 
-const getHost = (req) => `${req.protocol}://${req.get('host')}`;
+function getHost(req) {
+  let proto = req.headers['x-forwarded-proto'];
+
+  if (proto) {
+    proto = proto.split(',')[0].trim();
+  } else {
+    proto = req.protocol;
+  }
+
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+
+  return `${proto}://${host}`;
+}
 
 function checkReferer(req) {
   const ref = req.headers.referer;
