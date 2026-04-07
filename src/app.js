@@ -68,13 +68,17 @@ db.pragma('cache_size = 1000000');
 // ================= 工具 =================
 const apiResponse = (res, data, code = 200) => res.status(code).json(data);
 
+// ✅ HTTPS 终极修复版
 function getHost(req) {
   let proto = req.headers['x-forwarded-proto'];
 
   if (proto) {
     proto = proto.split(',')[0].trim();
-  } else {
-    proto = req.protocol;
+  }
+
+  // fallback
+  if (!proto) {
+    proto = req.secure ? 'https' : 'http';
   }
 
   const host = req.headers['x-forwarded-host'] || req.get('host');
@@ -406,10 +410,36 @@ app.get('/plus/artworks/file/:filename', (req, res) => {
   const stat = fsSync.statSync(filePath);
   const range = req.headers.range;
 
+app.get('/plus/artworks/file/:filename', (req, res) => {
+  if (!checkReferer(req)) {
+    return res.status(403).json({ error: true, message: 'forbidden' });
+  }
+
+  const filename = decodeURIComponent(req.params.filename);
+
+  const row = db.prepare(`
+    SELECT dir FROM files WHERE type='plus' AND filename=?
+  `).get(filename);
+
+  if (!row) return apiResponse(res, { error: true }, 404);
+
+  const filePath = path.join(PLUS_ROOT, row.dir, filename);
+
+  const stat = fsSync.statSync(filePath);
+  const range = req.headers.range;
+
+  // ✅ 必须：告诉浏览器支持 Range
+  res.setHeader('Accept-Ranges', 'bytes');
+
   if (range) {
     const [start, end] = range.replace(/bytes=/, "").split("-");
-    const s = parseInt(start);
-    const e = end ? parseInt(end) : stat.size - 1;
+    const s = parseInt(start, 10);
+    const e = end ? parseInt(end, 10) : stat.size - 1;
+
+    if (s >= stat.size) {
+      res.status(416).end();
+      return;
+    }
 
     res.writeHead(206, {
       'Content-Range': `bytes ${s}-${e}/${stat.size}`,
@@ -418,8 +448,15 @@ app.get('/plus/artworks/file/:filename', (req, res) => {
     });
 
     fsSync.createReadStream(filePath, { start: s, end: e }).pipe(res);
+
   } else {
-    res.sendFile(filePath);
+    // ✅ 关键：不要 sendFile
+    res.writeHead(200, {
+      'Content-Length': stat.size,
+      'Content-Type': 'video/mp4'
+    });
+
+    fsSync.createReadStream(filePath).pipe(res);
   }
 });
 
