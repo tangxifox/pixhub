@@ -398,64 +398,39 @@ app.get('/plus/artworks/file/:filename', (req, res) => {
   }
 
   const filename = decodeURIComponent(req.params.filename);
-
-  const row = db.prepare(`
-    SELECT dir FROM files WHERE type='plus' AND filename=?
-  `).get(filename);
-
-  if (!row) return apiResponse(res, { error: true }, 404);
-
-  const filePath = path.join(PLUS_ROOT, row.dir, filename);
-
-  const stat = fsSync.statSync(filePath);
-  const range = req.headers.range;
-
-app.get('/plus/artworks/file/:filename', (req, res) => {
-  if (!checkReferer(req)) {
-    return res.status(403).json({ error: true, message: 'forbidden' });
-  }
-
-  const filename = decodeURIComponent(req.params.filename);
-
-  const row = db.prepare(`
-    SELECT dir FROM files WHERE type='plus' AND filename=?
-  `).get(filename);
+  const row = db.prepare(
+    `SELECT dir FROM files WHERE type='plus' AND filename=?`
+  ).get(filename);
 
   if (!row) return apiResponse(res, { error: true }, 404);
 
   const filePath = path.join(PLUS_ROOT, row.dir, filename);
-
   const stat = fsSync.statSync(filePath);
   const range = req.headers.range;
 
-  // ✅ 必须：告诉浏览器支持 Range
   res.setHeader('Accept-Ranges', 'bytes');
 
   if (range) {
-    const [start, end] = range.replace(/bytes=/, "").split("-");
-    const s = parseInt(start, 10);
-    const e = end ? parseInt(end, 10) : stat.size - 1;
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
 
-    if (s >= stat.size) {
-      res.status(416).end();
-      return;
+    if (isNaN(start) || start >= stat.size) {
+      return res.status(416).end();
     }
 
     res.writeHead(206, {
-      'Content-Range': `bytes ${s}-${e}/${stat.size}`,
-      'Content-Length': e - s + 1,
+      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+      'Content-Length': end - start + 1,
       'Content-Type': 'video/mp4'
     });
 
-    fsSync.createReadStream(filePath, { start: s, end: e }).pipe(res);
-
+    fsSync.createReadStream(filePath, { start, end }).pipe(res);
   } else {
-    // ✅ 关键：不要 sendFile
     res.writeHead(200, {
       'Content-Length': stat.size,
       'Content-Type': 'video/mp4'
     });
-
     fsSync.createReadStream(filePath).pipe(res);
   }
 });
