@@ -5,6 +5,6 @@ services:
     ports:
       - "${PORT}:3000"
     volumes:
-      - "${DATA_DIR}:/app/data"
-      - "${RESOURCES_DIR}:/app/resources"
+      - ./data:/app/data"
+      - "${RESOURCES}:/app/resources"
     restart: unless-stopped
