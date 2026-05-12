@@ -954,7 +954,7 @@ plusRouter.get('/random', (req, res, next) => {
       throw new AppError(404, 'NO_PLUS_FILES', '没有找到任何视频文件');
     }
     
-    session.plus = row;
+    session.plus = null;
     
     const host = getHost(req);
     
@@ -1042,26 +1042,21 @@ plusRouter.get('/info', (req, res, next) => {
 
 plusRouter.get('/view', validateReferer, (req, res, next) => {
   try {
-    const { sessionId, session } = getOrCreateSession(req);
-    
-    if (!session.plus) {
-      session.plus = getRandomPlusFile();
-    }
-    
-    if (!session.plus) {
+    const row = getRandomPlusFile();
+    if (!row) {
       throw new AppError(404, 'NO_PLUS_FILES', '没有找到任何视频文件');
     }
-    
-    const filePath = path.join(PLUS_ROOT, session.plus.dir, session.plus.filename);
-    verifyResourceExists(filePath);
-    
-    res.cookie('sessionId', sessionId, { 
-      maxAge: 3600000,
-      httpOnly: true,
-      sameSite: 'strict'
-    });
-    
-    serveVideoView(res, filePath, session.plus.filename, req.headers.range);
+
+    const host = getHost(req);
+    const fileUrl = `${host}/plus/artworks/file/${encodeURIComponent(row.filename)}`;
+
+    // ✅ 禁止缓存 view 本身
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    // ✅ 302 临时重定向（关键）
+    res.redirect(302, fileUrl);
   } catch (error) {
     next(error);
   }
